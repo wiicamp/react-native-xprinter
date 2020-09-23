@@ -1,5 +1,5 @@
 {
-  "name": "react-native-xprinter",
+  "name": "@wiicamp/react-native-xprinter",
   "version": "0.1.0",
   "description": "react-native-xprinter is the React Native implementation of Xprinter SDK.",
   "main": "lib/commonjs/index",

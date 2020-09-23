@@ -5,13 +5,13 @@ react-native-xprinter is the React Native implementation of Xprinter SDK.
 ## Installation
 
 ```sh
-npm install react-native-xprinter
+npm install @wiicamp/react-native-xprinter
 ```
 
 ## Usage
 
 ```js
-import Xprinter from "react-native-xprinter";
+import Xprinter from "@wiicamp/react-native-xprinter";
 
 // ...
 
