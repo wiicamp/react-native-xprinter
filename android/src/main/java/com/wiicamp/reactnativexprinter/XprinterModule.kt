@@ -10,10 +10,10 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import net.posprinter.posprinterface.IMyBinder
+import net.posprinter.posprinterface.ProcessData
 import net.posprinter.posprinterface.UiExecute
 import net.posprinter.utils.DataForSendToPrinterPos58
 import java.io.UnsupportedEncodingException
-import java.net.URL
 
 
 class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
@@ -38,12 +38,12 @@ class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJa
             }
 
             override fun onfailed() {
-              ISCONNECT = false;
-              val intent = Intent();
-              intent.action = DISCONNECT;
-              reactContext.sendBroadcast(intent);
+              ISCONNECT = false
+              val intent = Intent()
+              intent.action = DISCONNECT
+              reactContext.sendBroadcast(intent)
             }
-          });
+          })
         }
 
         override fun onfailed() {
@@ -63,50 +63,46 @@ class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJa
     return "Xprinter"
   }
 
-  override fun initialize() {
-    super.initialize()
-
-
-  }
-
   @ReactMethod
   fun connectViaNetwork(ipAddress: String, promise: Promise) {
     if (ipAddress.isNullOrEmpty()) {
-      promise.reject("INVALID_IP_ADDRESS", "Invalid ip address. Please call connectViaNetwork with valid ip address.");
-      return;
+      promise.reject("INVALID_IP_ADDRESS", "Invalid ip address. Please call connectViaNetwork with valid ip address.")
+      return
     }
   }
 
   @ReactMethod
-  fun print(text: String) {
-//    val bytes = URL(filePath).readBytes()
-    val list = ArrayList<ByteArray>()
+  fun print(text: String, promise: Promise) {
+    binder.writeDataByYouself(
+      object : UiExecute {
+        override fun onsucess() {
+          promise.resolve(true);
+        }
+        override fun onfailed() {
+          promise.resolve(false)
+        }
+      }, object: ProcessData {
+      override fun processDataBeforeSend() : List<ByteArray> {
+        //    val bytes = URL(filePath).readBytes()
+        val list = ArrayList<ByteArray>()
 
-    list.add(DataForSendToPrinterPos58.initializePrinter())
-    val data1: ByteArray = strTobytes(text)
-    list.add(data1)
-    //should add the command of print and feed line,because print only when one line is complete, not one line, no print
-    //should add the command of print and feed line,because print only when one line is complete, not one line, no print
-    list.add(DataForSendToPrinterPos58.printAndFeedLine())
-    //cut pager
-    //cut pager
-    list.add(DataForSendToPrinterPos58.selectOrCancelCW90(1))
-
-//    binder.write(DataForSendToPrinterPos58., object: UiExecute {
-//      override fun onsucess() {
-//        TODO("Not yet implemented")
-//      }
-//
-//      override fun onfailed() {
-//        TODO("Not yet implemented")
-//      }
-//
-//    });
+        list.add(DataForSendToPrinterPos58.initializePrinter())
+        val data1: ByteArray = strTobytes(text)
+        list.add(data1)
+        //should add the command of print and feed line,because print only when one line is complete, not one line, no print
+        //should add the command of print and feed line,because print only when one line is complete, not one line, no print
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        //cut pager
+        //cut pager
+        list.add(DataForSendToPrinterPos58.selectOrCancelCW90(1))
+        return list
+      }
+    })
   }
 
   private fun strTobytes(str: String): ByteArray {
-    var b: ByteArray = ByteArray(0);
-    var data: ByteArray = ByteArray(0);
+    var b: ByteArray = ByteArray(0)
+    var data: ByteArray = ByteArray(0)
     try {
       b = str.toByteArray(charset("utf-8"))
       data = String(b, Charsets.UTF_8).toByteArray(charset("gbk"))

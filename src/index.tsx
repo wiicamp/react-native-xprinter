@@ -1,7 +1,7 @@
 import { NativeModules } from 'react-native';
 
 type XprinterType = {
-  multiply(a: number, b: number): Promise<number>;
+  print(text: String): Promise<boolean>;
 };
 
 const { Xprinter } = NativeModules;
