@@ -1,4 +1,4 @@
-package com.reactnativexprinter
+package com.wiicamp.reactnativexprinter
 
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule

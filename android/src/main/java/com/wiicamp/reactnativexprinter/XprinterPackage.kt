@@ -1,4 +1,4 @@
-package com.reactnativexprinter
+package com.wiicamp.reactnativexprinter
 
 import java.util.Arrays
 import java.util.Collections
