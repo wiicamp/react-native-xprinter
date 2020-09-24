@@ -1,8 +1,7 @@
 package com.wiicamp.reactnativexprinter
 
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
+import android.bluetooth.BluetoothAdapter
+import android.content.*
 import android.os.IBinder
 import android.util.Log
 import com.facebook.react.bridge.Promise
@@ -12,100 +11,146 @@ import com.facebook.react.bridge.ReactMethod
 import net.posprinter.posprinterface.IMyBinder
 import net.posprinter.posprinterface.ProcessData
 import net.posprinter.posprinterface.UiExecute
+import net.posprinter.service.PosprinterService
 import net.posprinter.utils.DataForSendToPrinterPos58
 import java.io.UnsupportedEncodingException
 
 
 class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
-  //IMyBinder interface，All methods that can be invoked to connect and send data are encapsulated within this interface
-  lateinit var binder: IMyBinder
+  var binder: IMyBinder? = null;
   var ISCONNECT = false
-  val DISCONNECT = "com.posconsend.net.disconnetct"
+  var DISCONNECT = "com.posconsend.net.disconnetct"
 
-  //bindService connection
-  val conn: ServiceConnection = object : ServiceConnection {
+  private val bluetoothAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+  private val InnerPrinterBluetoothMAC: String = "00:11:22:33:44:55"
+
+  private var serviceConnection: ServiceConnection = object : ServiceConnection {
     override fun onServiceConnected(componentName: ComponentName, iBinder: IBinder) {
-      //Bind successfully
-      binder = iBinder as IMyBinder
+      Log.v("XPrinter", "connected")
+      binder = iBinder as? IMyBinder;
 
-      binder.connectNetPort("127.0.0.1", 9100, object : UiExecute {
-        override fun onsucess() {
-          ISCONNECT = true
-
-          binder.acceptdatafromprinter(object : UiExecute {
-            override fun onsucess() {
-
-            }
-
-            override fun onfailed() {
-              ISCONNECT = false
-              val intent = Intent()
-              intent.action = DISCONNECT
-              reactContext.sendBroadcast(intent)
-            }
-          })
-        }
-
-        override fun onfailed() {
-          ISCONNECT = false
-        }
-
-      })
-      Log.e("connect binder", "connected")
+//
+//      //ipAddress :ip address; portal:9100
+//      binder?.connectNetPort("192.168.0.106", 9100, object : UiExecute {
+//        override fun onsucess() {
+//          Log.v("XPrinter", "Connect success to ip")
+//          binder?.acceptdatafromprinter(object : UiExecute {
+//            override fun onsucess() {}
+//            override fun onfailed() {}
+//          })
+//        }
+//
+//        override fun onfailed() {
+//          Log.v("XPrinter", "Connect fail to ip")
+//        }
+//      })
     }
 
     override fun onServiceDisconnected(componentName: ComponentName) {
-      Log.e("disconnect binder", "disconnected")
+      Log.v("XPrinter", "disconnected")
+//      mIPosPrinterService = null
     }
-  }
+  };
 
   override fun getName(): String {
     return "Xprinter"
   }
 
   @ReactMethod
-  fun connectViaNetwork(ipAddress: String, promise: Promise) {
-    if (ipAddress.isNullOrEmpty()) {
-      promise.reject("INVALID_IP_ADDRESS", "Invalid ip address. Please call connectViaNetwork with valid ip address.")
-      return
+  fun print(imageUrl: String, promise: Promise) {
+    if (bluetoothAdapter.isEnabled == false) {
+      //open bluetooth
+      val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+      reactApplicationContext.startActivityForResult(intent, 1, null)
+    } else {
+      binder?.connectBtPort(InnerPrinterBluetoothMAC, object : UiExecute {
+        override fun onsucess() {
+          ISCONNECT = true
+          sendDataToPrinter(imageUrl)
+        }
+
+        override fun onfailed() {
+          ISCONNECT = false
+        }
+      })
     }
   }
 
-  @ReactMethod
-  fun print(text: String, promise: Promise) {
-    binder.writeDataByYouself(
-      object : UiExecute {
-        override fun onsucess() {
-          promise.resolve(true);
-        }
-        override fun onfailed() {
-          promise.resolve(false)
-        }
-      }, object: ProcessData {
-      override fun processDataBeforeSend() : List<ByteArray> {
-        //    val bytes = URL(filePath).readBytes()
+  override fun initialize() {
+    super.initialize()
+
+    val intent = Intent()
+    intent.setClass(reactApplicationContext.baseContext, PosprinterService::class.java)
+    reactApplicationContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+  }
+
+  override fun invalidate() {
+    super.invalidate()
+
+    binder?.disconnectCurrentPort(object : UiExecute {
+      override fun onsucess() {}
+      override fun onfailed() {}
+    })
+
+    reactApplicationContext.unbindService(serviceConnection)
+  }
+
+  private fun sendDataToPrinter(text: String) {
+    binder?.writeDataByYouself(object : UiExecute {
+      override fun onsucess() {
+        Log.v("XPrinter", "writeDataByYourself")
+      }
+      override fun onfailed() {}
+    }, object : ProcessData {
+      override fun processDataBeforeSend(): List<ByteArray> {
         val list = ArrayList<ByteArray>()
 
+        // Command: initialize printer
         list.add(DataForSendToPrinterPos58.initializePrinter())
-        val data1: ByteArray = strTobytes(text)
-        list.add(data1)
-        //should add the command of print and feed line,because print only when one line is complete, not one line, no print
-        //should add the command of print and feed line,because print only when one line is complete, not one line, no print
+
+        // Contents
+        list.add(stringToBytes("Name: Stanley Cohen"))
         list.add(DataForSendToPrinterPos58.printAndFeedLine())
-        //cut pager
-        //cut pager
-        list.add(DataForSendToPrinterPos58.selectOrCancelCW90(1))
+        list.add(stringToBytes("Phone: 0987-458-772"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("Address:"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("[4.5 km] 3817 Edwards Cedar, ..."))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("--------------------------------"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("Wantons Soup with ...(L)   $7.25"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("x1"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("Hot and Sour Soup          $4.25"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("x1"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("--------------------------------"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("Subtotal (2 items)         $11.5"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("Delivery [4.5 km]              $5"))
+        list.add(DataForSendToPrinterPos58.printAndFeedLine())
+        list.add(stringToBytes("--------------------------------"))
+        list.add(stringToBytes("Total                        $14"))
+
+        // Command: break line, should add, because print only when one line is complete, not one line, no print
+        list.add(DataForSendToPrinterPos58.printAndFeed(100))
+//                list.add(DataForSendToPrinterPos58.printAndFeedLine())
+
         return list
       }
     })
   }
 
-  private fun strTobytes(str: String): ByteArray {
-    var b: ByteArray = ByteArray(0)
+  fun stringToBytes(str: String): ByteArray {
+//        var b: ByteArray = ByteArray(0)
     var data: ByteArray = ByteArray(0)
     try {
-      b = str.toByteArray(charset("utf-8"))
-      data = String(b, Charsets.UTF_8).toByteArray(charset("gbk"))
+//            b = str.toByteArray(charset("utf-8"))
+      data = str.toByteArray(charset("gbk"))
     } catch (e: UnsupportedEncodingException) {
       // TODO Auto-generated catch block
       e.printStackTrace()
