@@ -26,30 +26,10 @@ class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJa
 
   private var serviceConnection: ServiceConnection = object : ServiceConnection {
     override fun onServiceConnected(componentName: ComponentName, iBinder: IBinder) {
-      Log.v("XPrinter", "connected")
       binder = iBinder as? IMyBinder;
-
-//
-//      //ipAddress :ip address; portal:9100
-//      binder?.connectNetPort("192.168.0.106", 9100, object : UiExecute {
-//        override fun onsucess() {
-//          Log.v("XPrinter", "Connect success to ip")
-//          binder?.acceptdatafromprinter(object : UiExecute {
-//            override fun onsucess() {}
-//            override fun onfailed() {}
-//          })
-//        }
-//
-//        override fun onfailed() {
-//          Log.v("XPrinter", "Connect fail to ip")
-//        }
-//      })
     }
 
-    override fun onServiceDisconnected(componentName: ComponentName) {
-      Log.v("XPrinter", "disconnected")
-//      mIPosPrinterService = null
-    }
+    override fun onServiceDisconnected(componentName: ComponentName) {}
   };
 
   override fun getName(): String {
@@ -57,7 +37,7 @@ class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJa
   }
 
   @ReactMethod
-  fun print(imageUrl: String, promise: Promise) {
+  fun print(promise: Promise) {
     if (bluetoothAdapter.isEnabled == false) {
       //open bluetooth
       val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
@@ -65,8 +45,9 @@ class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJa
     } else {
       binder?.connectBtPort(InnerPrinterBluetoothMAC, object : UiExecute {
         override fun onsucess() {
+
           ISCONNECT = true
-          sendDataToPrinter(imageUrl)
+          sendDataToPrinter()
         }
 
         override fun onfailed() {
@@ -95,11 +76,9 @@ class XprinterModule(reactContext: ReactApplicationContext) : ReactContextBaseJa
     reactApplicationContext.unbindService(serviceConnection)
   }
 
-  private fun sendDataToPrinter(text: String) {
+  private fun sendDataToPrinter() {
     binder?.writeDataByYouself(object : UiExecute {
-      override fun onsucess() {
-        Log.v("XPrinter", "writeDataByYourself")
-      }
+      override fun onsucess() {}
       override fun onfailed() {}
     }, object : ProcessData {
       override fun processDataBeforeSend(): List<ByteArray> {
